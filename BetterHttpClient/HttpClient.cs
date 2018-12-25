@@ -212,7 +212,7 @@ namespace BetterHttpClient
         /// <returns></returns>
         public string Get(string url)
         {
-            return Encoding.GetString(DownloadBytes(url, null));
+            return Encoding.GetString(DownloadBytes(url, (NameValueCollection)null));
         }
         /// <summary>
         /// Execute POST request.
@@ -225,6 +225,11 @@ namespace BetterHttpClient
             return Encoding.GetString(DownloadBytes(url, data));
         }
 
+        public string Post(string url, string data)
+        {
+            return Encoding.GetString(DownloadBytes(url, data));
+        }
+
         /// <summary>
         /// Execute GET request.
         /// </summary>
@@ -232,7 +237,7 @@ namespace BetterHttpClient
         /// <returns></returns>
         public byte[] DownloadBytes(string url)
         {
-            return DownloadBytes(url, null);
+            return DownloadBytes(url, (NameValueCollection)null);
         }
         /// <summary>
         /// Excecute POST request.
@@ -256,6 +261,37 @@ namespace BetterHttpClient
                         Proxy.ProxyType = ProxyTypeEnum.Socks;
 
                     byte[] result = data == null ? Encoding.GetBytes(DownloadString(url)) : UploadValues(url, data);
+                    return result;
+                }
+                catch (WebException e)
+                {
+                    lastWebException = e;
+                    counter++;
+                }
+            }
+
+            if (unkownProxy)
+                Proxy.ProxyType = ProxyTypeEnum.Unknown;
+            // ReSharper disable once PossibleNullReferenceException
+            throw lastWebException;
+        }
+
+        public byte[] DownloadBytes(string url, string data)
+        {
+            int counter = 0;
+            WebException lastWebException = null;
+            bool unkownProxy = Proxy.ProxyType == ProxyTypeEnum.Unknown;
+
+            while (counter < NumberOfAttempts + (NumberOfAttempts < 2 && unkownProxy ? 1 : 0)) // min two try for unkonwn proxy type
+            {
+                try
+                {
+                    if (unkownProxy && counter % 2 == 0) // every odd try is as http proxy
+                        Proxy.ProxyType = ProxyTypeEnum.Http;
+                    else if (unkownProxy)
+                        Proxy.ProxyType = ProxyTypeEnum.Socks;
+
+                    byte[] result = Encoding.GetBytes(UploadString(url, data));
                     return result;
                 }
                 catch (WebException e)
